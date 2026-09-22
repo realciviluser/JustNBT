@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=JustNBT
+GenericName=NBT editor
+Comment=Editor for Minecraft Java and Bedrock worlds, NBT files and maps
+Comment[ru]=Редактор миров Minecraft Java и Bedrock, NBT-файлов и карт
+Exec=JustNBT %F
+Icon=justnbt
+Terminal=false
+Categories=Utility;Development;
+Keywords=Minecraft;NBT;Bedrock;world;editor;

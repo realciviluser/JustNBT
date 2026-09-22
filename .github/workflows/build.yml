@@ -1,0 +1,224 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: Linux · Qt ${{ matrix.qt }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        qt: [system, 6.8.3]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Compiler, build tools and fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ git \
+            libgl-dev libegl1 libxkbcommon-dev libfontconfig1 fonts-dejavu-core
+
+      - name: Qt from the Ubuntu packages
+        if: matrix.qt == 'system'
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            qt6-base-dev qt6-tools-dev qt6-tools-dev-tools qt6-l10n-tools \
+            qt6-qpa-plugins qt6-image-formats-plugins
+
+      - name: Qt ${{ matrix.qt }} from qt.io
+        if: matrix.qt != 'system'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ matrix.qt }}
+          arch: linux_gcc_64
+          cache: true
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Tests
+        working-directory: build
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          ./item_test
+          ./assets_test
+          ./i18n_test justnbt_ru.qm
+          ./undo_test
+          ./session_test
+          ./opening_test
+          ./map_selection_test
+          ./search_test
+          ./search_ui_test
+          ./inventory_test
+
+      - name: The program starts and keeps running
+        working-directory: build
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          set +e
+          timeout 10s ./JustNBT
+          code=$?
+          if [ "$code" -ne 124 ]; then
+            echo "JustNBT exited by itself with code $code"
+            exit 1
+          fi
+
+  windows:
+    name: Windows · portable zip
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Qt 6.8.3 and MinGW 13.1 from qt.io
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.8.3
+          arch: win64_mingw
+          tools: tools_mingw1310
+          cache: true
+
+      - name: MinGW 13.1 first in PATH
+        shell: bash
+        run: |
+          echo "$RUNNER_WORKSPACE/Qt/Tools/mingw1310_64/bin" >> "$GITHUB_PATH"
+
+      - name: Configure
+        shell: bash
+        run: |
+          g++ --version | head -1
+          cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel 4 --target JustNBT item_test assets_test search_test
+
+      - name: Tests
+        working-directory: build
+        shell: bash
+        run: |
+          ./item_test
+          ./assets_test
+          ./search_test
+
+      - name: Put the download together
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path CMakeLists.txt -Pattern 'project\(JustNBT VERSION ([0-9.]+)').Matches[0].Groups[1].Value
+          $dir = "JustNBT-$version-windows-x64"
+          New-Item -ItemType Directory $dir | Out-Null
+          Copy-Item build/JustNBT.exe $dir
+          windeployqt --release --no-translations --no-compiler-runtime --no-system-d3d-compiler --no-opengl-sw --dir $dir "$dir/JustNBT.exe"
+          $mingw = "$env:RUNNER_WORKSPACE/Qt/Tools/mingw1310_64/bin"
+          foreach ($dll in 'libstdc++-6.dll', 'libgcc_s_seh-1.dll', 'libwinpthread-1.dll') { Copy-Item "$mingw/$dll" $dir }
+          New-Item -ItemType Directory "$dir/translations" | Out-Null
+          Copy-Item "$env:QT_ROOT_DIR/translations/qtbase_ru.qm" "$dir/translations"
+          Copy-Item LICENSE, THIRD_PARTY_NOTICES.md, README.md $dir
+          Copy-Item LICENSES $dir -Recurse
+          Compress-Archive -Path $dir -DestinationPath "$dir.zip"
+          "DIR=$dir" >> $env:GITHUB_ENV
+
+      - name: The download starts
+        shell: pwsh
+        run: |
+          $p = Start-Process "$env:DIR/JustNBT.exe" -PassThru
+          Start-Sleep -Seconds 10
+          $p.Refresh()
+          $title = $p.MainWindowTitle
+          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+          if ($title -notlike 'JustNBT*') { Write-Error "no JustNBT window, the title was '$title'"; exit 1 }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: JustNBT-*-windows-x64.zip
+
+  appimage:
+    name: Linux · AppImage
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Compiler and the libraries Qt's X11 plugin needs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++-12 git file libfuse2 \
+            libgl-dev libegl1 libfontconfig1 fonts-dejavu-core \
+            libxkbcommon-dev libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libxcb-xkb1 libxcb-randr0 \
+            libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-shm0 libxcb-util1
+
+      - name: Qt 6.8.3 from qt.io
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.8.3
+          arch: linux_gcc_64
+          cache: true
+
+      - name: Build
+        run: |
+          CC=gcc-12 CXX=g++-12 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+          cmake --build build --parallel --target JustNBT
+          DESTDIR="$PWD/AppDir" cmake --install build
+          mkdir -p AppDir/usr/bin/translations
+          cp "$QT_ROOT_DIR/translations/qtbase_ru.qm" AppDir/usr/bin/translations/
+
+      - name: Make the AppImage
+        run: |
+          version=$(sed -n 's/^project(JustNBT VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          base=https://github.com/linuxdeploy
+          wget -q "$base/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
+          wget -q "$base/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage"
+          chmod +x linuxdeploy-*.AppImage
+          export QMAKE="$QT_ROOT_DIR/bin/qmake"
+          export EXTRA_PLATFORM_PLUGINS="libqoffscreen.so"
+          export APPIMAGE_EXTRACT_AND_RUN=1
+          export LDAI_OUTPUT="JustNBT-$version-x86_64.AppImage"
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt --output appimage
+          ls -l JustNBT-*.AppImage
+
+      - name: The AppImage starts and keeps running
+        env:
+          QT_QPA_PLATFORM: offscreen
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          set +e
+          timeout 10s ./JustNBT-*.AppImage
+          code=$?
+          if [ "$code" -ne 124 ]; then
+            echo "The AppImage exited by itself with code $code"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: JustNBT-*-x86_64.AppImage
+
+  release:
+    name: Draft release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, windows, appimage]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: dist/*

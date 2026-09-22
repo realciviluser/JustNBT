@@ -1,0 +1,8 @@
+photos/
+build/
+CMakeUserPresets.json
+*.user
+.vscode/
+.idea/
+aqtinstall.log
+translations/*.qm
