@@ -56,7 +56,8 @@ backups are kept.
 Ready-to-use versions for Windows and Linux are on the [Releases](../../releases) page.
 
 - **Windows:** download `JustNBT-<version>-windows-x64.zip`, unzip it anywhere and run
-  `JustNBT.exe`. Nothing needs to be installed.
+  `JustNBT.exe`. Nothing needs to be installed. Windows SmartScreen may warn about an
+  unknown publisher: click **More info → Run anyway**.
 - **Linux:** download `JustNBT-<version>-x86_64.AppImage`, make it executable and run it:
 
   ```bash
