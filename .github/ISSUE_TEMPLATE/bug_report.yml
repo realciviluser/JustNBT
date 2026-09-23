@@ -1,0 +1,77 @@
+name: Bug report
+description: Something does not work or looks wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead.
+      placeholder: |
+        1. Opened the world "My world"
+        2. Right-clicked a sword in the inventory → Edit the item
+        3. ...
+    validations:
+      required: true
+
+  - type: input
+    id: justnbt
+    attributes:
+      label: JustNBT version
+      description: Shown in Help → About.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: edition
+    attributes:
+      label: Minecraft edition
+      options:
+        - Java
+        - Bedrock
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Minecraft version of the world
+      placeholder: "1.21.4"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: source
+    attributes:
+      label: Where the world comes from
+      options:
+        - Singleplayer, no mods
+        - Singleplayer with mods
+        - Server without plugins or mods
+        - Server with plugins or mods
+    validations:
+      required: true
+
+  - type: textarea
+    id: mods
+    attributes:
+      label: Mods or plugins
+      description: The mod loader (Forge, Fabric, NeoForge…) or server software (Paper, Spigot…) with its version, and the list of mods or plugins. Leave empty if there are none.
+
+  - type: textarea
+    id: files
+    attributes:
+      label: Screenshots and files
+      description: Drop screenshots here. If you can, attach the file that causes the problem, zipped (GitHub does not accept .dat or .mca as they are). Attached files are public.

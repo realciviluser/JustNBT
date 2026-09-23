@@ -123,6 +123,14 @@ To add JustNBT to the application menu, install it (to `/usr/local` by default):
 sudo cmake --install build
 ```
 
+## Reporting bugs
+
+Found a bug or something that looks wrong? Please [open an issue](../../issues/new/choose),
+even if it seems small.
+
+Files attached to an issue are public: anyone can download them. GitHub does not accept
+`.dat` or `.mca` files as they are, so put them in a `.zip` first.
+
 ## License
 
 JustNBT is free software under the [GNU General Public License v3.0](LICENSE). You may use,
